@@ -122,7 +122,7 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap, is_solid
 def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
     return cv2.addWeighted(initial_img, α, img, β, λ)
 
-def color_frame_pipeline(color_image, is_solid, history_line):
+def color_frame_pipeline(color_image, is_solid, is_video, history_line):
     kernel_size = 15
     low_threshold = 30
     high_threshold = 120
@@ -149,9 +149,9 @@ def color_frame_pipeline(color_image, is_solid, history_line):
     line_img = np.zeros((masked_edges.shape[0], masked_edges.shape[1], 3), dtype=np.uint8)
     if is_solid > 0:
         this_line = make_lines(line_img, lines)
-        if len(color_image) > 0:
+        if is_video > 0:
             if this_line[0] > 0:
-                if len(history_line) >= 220:#I REALLY DON'Y HAVE TIME TO OPTIMIZE...MAYBE LATER
+                if len(history_line) >= 225:#REALLY DON'Y HAVE TIME TO OPTIMIZE...MAYBE LATER
                     history_line.pop()
                 history_line.insert(0, this_line)
             line_img = draw_lines(line_img, history_line)
@@ -159,30 +159,27 @@ def color_frame_pipeline(color_image, is_solid, history_line):
         else:
             history_line.insert(0, this_line)
             line_img = draw_lines(line_img, history_line)
-            img_blend = weighted_img(color_image, line_img[-1], α=0.8, β=1., λ=0.)
-    else:
-        if len(color_image) > 0:
-            line_img = make_no_solid_lines(color_image[0], lines)
             img_blend = weighted_img(color_image[0], line_img, α=0.8, β=1., λ=0.)
-        else:
-            print("image")
-            line_img = make_no_solid_lines(color_image, lines)
-            img_blend = weighted_img(color_image, line_img[-1], α=0.8, β=1., λ=0.)
+    else:
+        line_img = make_no_solid_lines(color_image[0], lines)
+        img_blend = weighted_img(color_image[0], line_img, α=0.8, β=1., λ=0.)
+
     return img_blend
     
 def on_image(is_solid):
     raw_images_dir = join('raw_data', 'test_images')
     raw_images = [join(raw_images_dir, name) for name in os.listdir(raw_images_dir)]
-    in_image = []
-    history_line = collections.deque()
     for this_raw_image in raw_images:
+        in_image = []
+        history_line = collections.deque()
         res_path = join('res', 'images', basename(this_raw_image))
         in_image.append(cv2.cvtColor(cv2.imread(this_raw_image, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB))
-        print(len(in_image))
-        out_image = color_frame_pipeline(in_image, is_solid, history_line)
+        out_image = color_frame_pipeline(in_image, is_solid, 0, history_line)
         cv2.imwrite(res_path, cv2.cvtColor(out_image, cv2.COLOR_RGB2BGR))
         plt.imshow(out_image)
         plt.show()
+        
+
 
 def on_video(is_solid):
     raw_videos_dir = join('raw_data', 'test_videos')
@@ -202,8 +199,7 @@ def on_video(is_solid):
                 color_frame = cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB)
                 color_frame = cv2.resize(color_frame, size)
                 frame_buffer.append(color_frame)
-                print(len(frame_buffer))
-                blend_frame = color_frame_pipeline(frame_buffer, is_solid, history_line)
+                blend_frame = color_frame_pipeline(frame_buffer, is_solid, 1, history_line)
                 res.write(cv2.cvtColor(blend_frame, cv2.COLOR_RGB2BGR))
                 cv2.imshow('blend', cv2.cvtColor(blend_frame, cv2.COLOR_RGB2BGR)), cv2.waitKey(1)
             else:
